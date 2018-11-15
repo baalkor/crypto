@@ -5,9 +5,14 @@
 # The goal of this script is to
 #     1 - encrypt a given text with a key using viginiere
 #     2 - decrypt a given ciphered text  with a key using viginiere
-#     3 - decrypt a given ciphered text  with statistical analysis
+#     3 - decrypt a given ciphered text  with statistical analysis - ICs
+#     4 - decrypt a given ciphered text  with statistical analysis - Repetition
+# Resources used :
+# https://www.apprendre-en-ligne.net/crypto/vigenere/index.html (Repetition)
+# http://practicalcryptography.com/cryptanalysis/stochastic-searching/cryptanalysis-vigenere-cipher/ (ICs)
 ################
 import string
+import math
 
 fr_LETTER_ = {
 'E':15.87,
@@ -238,7 +243,7 @@ def chiSquaedM(data,l):
             caesr_chi.append((d,c))
     return caesr_chi
 
-def vignier_crack(cipherData, key_range):
+def vignier_crack_ic(cipherData, key_range):
     keyLen = get_key_len(cipherData, key_range)
     data = sanitize(cipherData.upper(), keyLen)
     results = []
@@ -249,15 +254,61 @@ def vignier_crack(cipherData, key_range):
     return "".join(results)
 
 
+def find_pattern_count(text, pLen):
+    repetition = {}
+    for l in range(0,len(text),pLen):
+        chunk = text[l:l+pLen]
+        if len(chunk) > 1:
+            if chunk in repetition:
+                repetition[chunk].append(l)
+            else:
+                repetition[chunk] = [1]
+    oRep = {}
+    for i in repetition.keys():
+        if len(repetition[i]) > 1:
+            oRep[i] = repetition[i]
+
+    return oRep
+
+def find_key_len(matrix):
+    key_len = -1
+    spacesBetweenLetters = []
+    for index in matrix:
+        count=1
+        for i in index:
+            count *= i
+        spacesBetweenLetters.append(count)
+    if len(spacesBetweenLetters) > 1:
+        a = spacesBetweenLetters[0]
+        b = spacesBetweenLetters[1]
+        key_len = math.gcd(a, b)
+        for i in range(2,len(spacesBetweenLetters)):
+            a = spacesBetweenLetters[i]
+            key_len = math.gcd(key_len,b)
+    return key_len
+
+
+
+def vignier_crack_length(cipherData):
+    repetitions = []
+    for round in range(2,len(cipherData)): # Check 2,3,4,.. size repetition rate
+        repetition = find_pattern_count(cipherData, round)
+        if len(repetition) > 0:
+            for occurence in repetition.keys():
+                repetitions.append(repetition[occurence])
+    key_len = find_key_len(repetitions)
+    print(key_len)
+
 if __name__ == "__main__":
-    plainText = "Attaquer a l'aube".upper()
-    key = "axfre".upper()
+    plainText = "un deux trois nous partons au bois quatre cinq six ceuillir des cerise avec un balais neuf dans ma chaussure neuve"
+    key = "cafe".upper()
     cipheredText = cipher_vignier(plainText, key)
     print("Demo : ")
     print("KEY   |%s" % key)
     print("PLAIN |%s" % plainText)
     print("ENC   |%s" % cipheredText)
     print("DEC   |%s" % cipher_vignier(cipheredText, key,False))
-    print("CRACK |%s" % (vignier_crack(cipheredText, range(1,6))))
+    print("CRACK#1|%s" % (vignier_crack_ic(cipheredText, range(1,6))))
+    print("CRACK#2|%s" % (vignier_crack_length(cipheredText.replace(" ", ""))))
 
 
